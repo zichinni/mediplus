@@ -1,20 +1,20 @@
-name: Build and Push Docker Image to ECR
+name: Push Existing Docker Image to ECR
 
 on:
   push:
     branches:
-      - main  # run this workflow only when pushing to main
+      - main  # Runs workflow when pushing to main branch
 
 jobs:
-  build_and_push:
+  push_docker_to_ecr:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️ Checkout the repository
+      #  Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️ Configure AWS credentials
+      #  Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -22,15 +22,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 3️ Log in to ECR
+      #  Login to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4️ Build, tag, and push the Docker image
-      - name: Build, Tag, and Push Docker Image
+      #  Tag and Push Docker Image
+      - name: Tag and Push Existing Docker Image
         run: |
+          # Full ECR repo URL (without tag) stored in secret
           IMAGE_URI="${{ secrets.ECR_REPO_URI }}:latest"
-          echo "Building Docker image: $IMAGE_URI"
-          docker build -t "$IMAGE_URI" .
-          echo "Pushing Docker image to ECR"
+          echo "Tagging local Docker image as $IMAGE_URI"
+          
+          # Tag the existing local Docker image 'mediplus:latest'
+          docker tag mediplus:latest "$IMAGE_URI"
+          
+          # Push image to Amazon ECR
+          echo "Pushing Docker image to ECR..."
           docker push "$IMAGE_URI"
+
