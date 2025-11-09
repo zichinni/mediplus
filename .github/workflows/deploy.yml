@@ -46,13 +46,22 @@ jobs:
           echo "${{ secrets.SSH_KEY }}" > mykey.pem
           chmod 600 mykey.pem
 
-      - name: Deploy to EC2
+      - name: Get ECR login password (on runner)
         run: |
-          ssh -o StrictHostKeyChecking=no -i mykey.pem ubuntu@3.80.79.23 "
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO_URI }} &&
-            docker pull ${{ secrets.ECR_REPO_URI }}:latest &&
-            docker stop mediplus || true &&
-            docker rm mediplus || true &&
-            docker run -d -p 80:80 --name mediplus ${{ secrets.ECR_REPO_URI }}:latest
-          "
+          echo "ECR_PASSWORD=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})" >> $GITHUB_ENV
+
+      - name: Deploy to EC2 (pipe ECR password to remote docker login)
+        run: |
+          REMOTE="ubuntu@3.80.79.23"
+          REGISTRY="${{ secrets.ECR_REPO_URI }}"
+          REMOTE_CMD="sudo apt-get update -y && sudo apt-get install -y docker.io || true && \
+          sudo docker login --username AWS --password-stdin ${REGISTRY} && \
+          sudo docker pull ${REGISTRY}:latest && \
+          sudo docker stop mediplus || true && sudo docker rm mediplus || true && \
+          sudo docker run -d -p 80:80 --name mediplus ${REGISTRY}:latest"
+
+          # Pipe runner-obtained ECR password into remote docker login (avoids aws on remote & non-TTY issues)
+          echo "$ECR_PASSWORD" | ssh -o StrictHostKeyChecking=no -i mykey.pem ${REMOTE} "${REMOTE_CMD}"
+
+          rm -f mykey.pem
 
