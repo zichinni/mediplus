@@ -52,7 +52,7 @@ jobs:
 
       - name: Deploy to EC2 (pipe ECR password to remote docker login)
         run: |
-          REMOTE="ubuntu@3.80.79.23"
+          REMOTE="ubuntu@54.242.115.34"
           REGISTRY="${{ secrets.ECR_REPO_URI }}"
           REMOTE_CMD="sudo apt-get update -y && sudo apt-get install -y docker.io || true && \
           sudo docker login --username AWS --password-stdin ${REGISTRY} && \
