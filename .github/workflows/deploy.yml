@@ -23,7 +23,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, Tag, and Push Docker Image
+      - name: Build, Tag & Push Docker Image
         run: |
           IMAGE_URI="${{ secrets.ECR_REPO_URI }}:latest"
           docker build -t "$IMAGE_URI" .
@@ -34,18 +34,25 @@ jobs:
     needs: build_and_push
 
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Save EC2 Private Key
         run: |
           echo "${{ secrets.SSH_KEY }}" > mykey.pem
           chmod 600 mykey.pem
 
-      -      - name: Deploy to EC2
+      - name: Deploy to EC2
         run: |
-          echo "${{ secrets.SSH_KEY }}" > mykey.pem
-          chmod 600 mykey.pem
           ssh -o StrictHostKeyChecking=no -i mykey.pem ubuntu@3.80.79.23 "
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO_URI }} &&
             docker pull ${{ secrets.ECR_REPO_URI }}:latest &&
             docker stop mediplus || true &&
             docker rm mediplus || true &&
             docker run -d -p 80:80 --name mediplus ${{ secrets.ECR_REPO_URI }}:latest
           "
+
