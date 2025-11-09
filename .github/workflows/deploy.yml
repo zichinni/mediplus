@@ -1,20 +1,18 @@
-name: Build and Push Docker Image to ECR
+name: Build, Push to ECR and Deploy to EC2
 
 on:
   push:
     branches:
-      - main  # Run workflow on pushes to main branch
+      - main
 
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -22,21 +20,34 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 3️⃣ Log in to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4️⃣ Build, Tag, and Push Docker Image
       - name: Build, Tag, and Push Docker Image
         run: |
-          # Full ECR repo URL (without tag) stored in secret
           IMAGE_URI="${{ secrets.ECR_REPO_URI }}:latest"
-          echo "Building Docker image: $IMAGE_URI"
-          
-          # Build Docker image from Dockerfile in the repo
           docker build -t "$IMAGE_URI" .
-          
-          # Push Docker image to ECR
-          echo "Pushing Docker image to ECR..."
           docker push "$IMAGE_URI"
 
+  deploy_to_ec2:
+    runs-on: ubuntu-latest
+    needs: build_and_push
+
+    steps:
+      - name: Save EC2 Private Key
+        run: |
+          echo "${{ secrets.SSH_KEY }}" > mykey.pem
+          chmod 600 mykey.pem
+
+      -      - name: Deploy to EC2
+        run: |
+          echo "${{ secrets.SSH_KEY }}" > mykey.pem
+          chmod 600 mykey.pem
+          ssh -o StrictHostKeyChecking=no -i mykey.pem ubuntu@3.80.79.23 "
+            docker pull ${{ secrets.ECR_REPO_URI }}:latest &&
+            docker stop mediplus || true &&
+            docker rm mediplus || true &&
+            docker run -d -p 80:80 --name mediplus ${{ secrets.ECR_REPO_URI }}:latest
+          "
+
+          "
