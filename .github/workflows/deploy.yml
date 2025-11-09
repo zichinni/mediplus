@@ -49,5 +49,3 @@ jobs:
             docker rm mediplus || true &&
             docker run -d -p 80:80 --name mediplus ${{ secrets.ECR_REPO_URI }}:latest
           "
-
-          "
